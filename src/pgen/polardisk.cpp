@@ -52,8 +52,8 @@ void AlphaViscosity(HydroDiffusion *phdif, MeshBlock *pmb, const AthenaArray<Rea
 static Real rho_floor(const Real rad, const Real phi, const Real z);
 
 // User-defined functions
-void UserSourceTerms(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Real> &prim,
-     const AthenaArray<Real> &bcc, AthenaArray<Real> &cons);
+void UserSourceTerms(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
+     const AthenaArray<Real> &bcc, AthenaArray<Real> &cons, AthenaArray<Real> &cons_scalar);
 Real UserTimestep(MeshBlock *pmb);
 
 // User-defined boundary conditions for disk simulations
@@ -665,8 +665,8 @@ static Real rho_floor(const Real rad, const Real phi, const Real z)
 //----------------------------------------------------------------------------------------
 //!\f: User-defined function for source terms.
 //
-void UserSourceTerms(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Real> &prim,
-     const AthenaArray<Real> &bcc, AthenaArray<Real> &cons) {
+void UserSourceTerms(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
+     const AthenaArray<Real> &bcc, AthenaArray<Real> &cons, AthenaArray<Real> &cons_scalar) {
 
   Real src[NHYDRO];   // Array for gas density/energy changes.
   Real rad, phi, z;   // Cylindrical coordinates
@@ -899,6 +899,16 @@ void DiskOuterX3(MeshBlock *pmb,Coordinates *pco, AthenaArray<Real> &prim, FaceF
 
 
 //----------------------------------------------------------------------------------------
+//!\f: Mesh->UserWorkInLoop: User-defined tasks for the Mesh, called once per cycle
+//
+void Mesh::UserWorkInLoop(void)
+{
+  // Integrate the gravitational bodies. Call this only once per cycle.
+  Particle_Leapfrog_Subcycle(ParticleList, 2, time, dt, dt_sub);
+}
+
+
+//----------------------------------------------------------------------------------------
 //!\f: UserWorkInLoop: User-defined tasks to be completed each cycle
 //
 
@@ -922,26 +932,20 @@ void MeshBlock::UserWorkInLoop(void)
     }
   }
 
-  // Call these commands only once per Mesh, not for each MeshBlock
-  if (prev==NULL)
-  {
-    // Output coordinates if a time orbit_dt has elapsed.
-    if (Globals::my_rank == 0) {
+  // Output coordinates if a time orbit_dt has elapsed.
+  if (Globals::my_rank == 0) {
 
-      if (pmy_mesh->time-orbit_t >= orbit_dt) {
-        for (int i=0; i<2; i++)
-        {
-          Particle P = ParticleList[i];
-          printf("particle%c %.8f %.8f %.8f %.8f %.8f %.8f %.8f\n",
-            65+i, pmy_mesh->time, P.x, P.y, P.z, P.vx, P.vy, P.vz);
-        }
-        orbit_t += orbit_dt;
+    if (pmy_mesh->time-orbit_t >= orbit_dt) {
+      for (int i=0; i<2; i++)
+      {
+        Particle P = ParticleList[i];
+        printf("particle%c %.8f %.8f %.8f %.8f %.8f %.8f %.8f\n",
+          65+i, pmy_mesh->time, P.x, P.y, P.z, P.vx, P.vy, P.vz);
       }
+      orbit_t += orbit_dt;
     }
-    
-    // Integrate the gravitational bodies. Call this only once per cycle.
-    Particle_Leapfrog_Subcycle(ParticleList, 2, pmy_mesh->time, pmy_mesh->dt, dt_sub);
   }
+
 }
 
 
