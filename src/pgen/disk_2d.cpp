@@ -383,10 +383,10 @@ static void GetCylCoord(Coordinates *pco,Real &rad,Real &phi,Real &z,int i,int j
   // Then, convert them to tilted form.
 
   // Calculation of disk inclination and the tilted coordinate theta'.
-  Real sinth = sin(pco->x2v(j));
-  Real costh = cos(pco->x2v(j));
-  Real sinphi = sin(pco->x3v(k));
-  Real cosphi = cos(pco->x3v(k));
+  Real sinth = sin(pco->x3v(k));
+  Real costh = cos(pco->x3v(k));
+  Real sinphi = sin(pco->x2v(j));
+  Real cosphi = cos(pco->x2v(j));
   Real sininc = sin(inc);
   Real cosinc = cos(inc);
 
@@ -673,13 +673,13 @@ void UserSourceTerms(MeshBlock *pmb, const Real time, const Real dt, const Athen
 
   // Iterate over the entire grid.
   for (int k=pmb->ks; k<=pmb->ke; ++k) {
-    Real phi = pmb->pcoord->x3v(k);
-    Real sinphi = sin(phi);
-    Real cosphi = cos(phi);
+    Real th = pmb->pcoord->x3v(k);
+    Real sinth = sin(th);
+    Real costh = cos(th);
     for (int j=pmb->js; j<=pmb->je; ++j) {
-      Real th = pmb->pcoord->x2v(j);
-      Real sinth = sin(th);
-      Real costh = cos(th);
+      Real phi = pmb->pcoord->x2v(j);
+      Real sinphi = sin(phi);
+      Real cosphi = cos(phi);
       for (int i=pmb->is; i<=pmb->ie; ++i) {     
 
         Real dmin = SIZE_MAX;
