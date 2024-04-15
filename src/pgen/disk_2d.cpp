@@ -611,8 +611,12 @@ static void VelProfileCyl(const Real rad, const Real phi, const Real z,
 
   // Write the R, theta, and phi components of the velocity (in the tilted disk plane).
   v1 = 0.0;
-  v2 = -vel*cos(phi)*sin(inc)/sin_th0;
-  v3 = vel*(sin(phi)*sin_phi0 + cos(phi)*cos_phi0*cos(inc))/sin_th0;
+  v2 = vel*(sin(phi)*sin_phi0 + cos(phi)*cos_phi0*cos(inc))/sin_th0;
+  v3 = -vel*cos(phi)*sin(inc)/sin_th0;
+
+  //v1 = 0.0;
+  //v2 = -vel*cos(phi)*sin(inc)/sin_th0;
+  //v3 = vel*(sin(phi)*sin_phi0 + cos(phi)*cos_phi0*cos(inc))/sin_th0;
 
   return;
 }
