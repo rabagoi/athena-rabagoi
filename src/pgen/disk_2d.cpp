@@ -316,30 +316,6 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   return;
 }
 
-/*
-//========================================================================================
-//! \fn void Mesh::InitUserMeshBlockData(ParameterInput *pin)
-//  \brief Function to initialize problem-specific data in meshblock class.  Can also be used
-//  to initialize variables which are global to (and therefore can be passed to) other
-//  functions in this file.  Called in MeshBlock constructor.
-//========================================================================================
-void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
-  // USER DATA DEBUG
-  // enroll user data arrays
-  int nx1 = ie - is + 1 + 2*NGHOST;
-  int nx2 = je - js + 1 + 2*NGHOST;
-  int nx3 = ke - ks + 1 + 2*NGHOST;
-  AllocateRealUserMeshBlockDataField(4);
-  ruser_meshblock_data[0].NewAthenaArray(nx3, nx2, nx1);
-  ruser_meshblock_data[1].NewAthenaArray(nx3, nx2, nx1);
-  ruser_meshblock_data[2].NewAthenaArray(nx3, nx2, nx1);
-  ruser_meshblock_data[3].NewAthenaArray(nx3, nx2, nx1);
-
-  // enroll user output variables
-  AllocateUserOutputVariables(4);
-}
-*/
-
 //========================================================================================
 //! \fn void MeshBlock::ProblemGenerator(ParameterInput *pin)
 //  \brief Initializes Keplerian accretion disk.
@@ -599,8 +575,6 @@ static void VelProfileCyl(const Real rad, const Real phi, const Real z,
     vel = std::sqrt(1.0*rad*rad/R/R/R);
   }
 
-
-
   // Calculate the original values of phi and th before the transformation.
   Real sin_phi0 = sinth*sinphi*cosinc - costh*sininc;
   Real cos_phi0 = sinth*cosphi;
@@ -613,10 +587,6 @@ static void VelProfileCyl(const Real rad, const Real phi, const Real z,
   v1 = 0.0;
   v2 = vel*(sin(phi)*sin_phi0 + cos(phi)*cos_phi0*cos(inc))/sin_th0;
   v3 = -vel*cos(phi)*sin(inc)/sin_th0;
-
-  //v1 = 0.0;
-  //v2 = -vel*cos(phi)*sin(inc)/sin_th0;
-  //v3 = vel*(sin(phi)*sin_phi0 + cos(phi)*cos_phi0*cos(inc))/sin_th0;
 
   return;
 }
@@ -982,26 +952,3 @@ Real UserTimestep(MeshBlock *pmb)
 {
   return 7e-4;    // Lower dt to set a constant timestep for binary
 }
-
-/*
-//----------------------------------------------------------------------------------------
-//!\f: UserWorkBeforeOutput: User-defined tasks before output is written
-//
-void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
-  // USER DATA DEBUG
-  // Record user data to output file
-  int il = is - NGHOST, iu = ie + NGHOST;
-  int jl = js - NGHOST, ju = je + NGHOST;
-  int kl = ks - NGHOST, ku = ke + NGHOST;
-
-  for (int k=kl; k<=ku; ++k) {
-    for (int j=jl; j<=ju; ++j) {
-      for (int i=il; i<=iu; ++i) {
-        for(int n=0; n<4; ++n) {
-          user_out_var(n,k,j,i) = ruser_meshblock_data[n](k,j,i);
-        }
-      }
-    }
-  }
-}
-*/
