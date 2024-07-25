@@ -108,7 +108,7 @@ static bool HasCrashed;
 Particle ParticleList[N_PARTICLES] = {
     Particle(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     Particle(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
-    //Particle(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+    Particle(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 };
 
 
