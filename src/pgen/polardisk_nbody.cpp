@@ -40,7 +40,6 @@ python configure.py --prob=polardisk --coord=spherical_polar --nghost=3 -mpi [hd
 // Add gravitational masses
 #include "../Binary.hpp"
 
-#define N_PARTICLES 3
 
 static void GetCylCoord(Coordinates *pco,Real &rad,Real &phi,Real &z,int i,int j,int k);
 static Real DenProfileCyl(const Real rad, const Real phi, const Real z);
@@ -88,9 +87,11 @@ static Real rho_floor0, rho_floor_slope;
 static Real alpha;
 static Real Tc;
 
-// binary variables
+// particle variables
 static Real M1, M2, M3, Mtot;
-static Real bin_a, bin_ecc;
+static Real a1, a2, ecc1, ecc2;
+static Real bin_inc;
+//static Real bin_a, bin_ecc;
 static Real rs;
 
 // time variables
@@ -111,6 +112,8 @@ Particle ParticleList[N_PARTICLES] = {
     Particle(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 };
 
+// Define particle aliases for easy naming
+Particle& P1 = ParticleList[0], &P2 = ParticleList[1], &P3 = ParticleList[2];
 
 //========================================================================================
 //! \fn void Mesh::InitUserMeshData(ParameterInput *pin)
@@ -169,13 +172,19 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   M1 =  pin->GetOrAddReal("problem", "Ma", 1.0);
   M2 =  pin->GetOrAddReal("problem", "Mb", 1.0);
   M3 =  pin->GetOrAddReal("problem", "Mc", 0.01);
-  Mtot = M1 + M2;
+  Mtot = M1 + M2 + M3;
   M1 = M1/Mtot;
   M2 = M2/Mtot;
+  M3 = M3/Mtot;
   Mtot = Mtot/Mtot;
 
-  bin_a = pin->GetOrAddReal("problem", "bin_a", 0.25);
-  bin_ecc = pin->GetOrAddReal("problem", "bin_ecc", 0.0);
+  a1 = pin->GetOrAddReal("problem", "a1", 1.0);
+  a2 = pin->GetOrAddReal("problem", "a2", 2.0);
+  ecc1 = pin->GetOrAddReal("problem", "ecc1", 0.0);
+  ecc2 = pin->GetOrAddReal("problem", "ecc2", 0.0);
+  bin_inc = pin->GetOrAddReal("problem", "bin_inc", 0.0);
+  //bin_a = pin->GetOrAddReal("problem", "bin_a", 0.25);
+  //bin_ecc = pin->GetOrAddReal("problem", "bin_ecc", 0.0);
   rs = pin->GetOrAddReal("problem", "rs", 0.001);
 
   // Initialize orbit output counter
@@ -183,7 +192,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   orbit_dt = pin->GetOrAddReal("problem", "orbit_dt", 0.01);
 
   // Set subcycling dt
-  dt_sub = pin->GetOrAddReal("problem", "dt_sub", 2*PI*pow(bin_a,1.5)/3000.);
+  dt_sub = pin->GetOrAddReal("problem", "dt_sub", 2*PI*pow(a1,1.5)/3000.);
 
   // Add for new density floor
   xcut = mesh_size.x1min;
@@ -268,21 +277,16 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     // Move binary to COM frame and set velocity and set particle velocities
     // Only set initial velocity if no restart file is present.  Move this to initialization of ParticleList?
 
-    // NOTE: The current configuration is set for a binary in the simulation XZ-plane (polar alignment).
-    // For coplanar alignment, shuffle the axes accordingly or use the commented lines below.
-
 
     // Set initial particle masses
-    ParticleList[0].M = M1;
-    ParticleList[1].M = M2;
-    ParticleList[2].M = M3;
+    P1.M = M1;
+    P2.M = M2;
+    P3.M = M3;
 
-    // Set initial particle positions
-    //ParticleList[0].z = 0.0;
-    //ParticleList[1].z = bin_a*(1.0-bin_ecc);
 
-    ParticleList[0].x = 0.0;                 // Coplanar version
-    ParticleList[1].x = bin_a*(1.0-bin_ecc);
+    // Set inner binary orbit
+    P1.x = 0.0;
+    P2.x = a1*(1.0-ecc1);
 
     Real dx = ParticleList[0].x-ParticleList[1].x;
     Real dy = ParticleList[0].y-ParticleList[1].y; 
@@ -290,25 +294,71 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     Real dist = std::sqrt(dx*dx + dy*dy + dz*dz);
     
     // Calculate specific velocity vs = v/M
-    Real vs = std::sqrt( 1.0/Mtot/dist*(1.0+bin_ecc) );
+    Real vs = std::sqrt( 1.0/(P1.M+P2.M)/dist*(1.0+ecc1) );
+
+    P1.vy = -vs * P2.M * cos(bin_inc);
+    P1.vz = -vs * P2.M * sin(bin_inc);
+    
+    P2.vy = P1.M * vs * cos(bin_inc);
+    P2.vz = P1.M * vs * sin(bin_inc);
+
+    move_to_com(ParticleList);
+
+
+    // Calculate outer binary orbit as a third particle orbiting the COM of the inner binary.
+    P3.x = a2*(1.0-ecc2);
+
+    Real vs2 = std::sqrt(1.0/Mtot/a2*(1.0+ecc2)/(1.0-ecc2));
+    P3.vy = (P1.M+P2.M)*vs;
+
+    for (int i=0; i<2; ++i)
+    {
+      ParticleList[i].vy += -vs*P3.M;
+    }
+
+    move_to_com(ParticleList);
+
+    // Realign the angular momentum of the system, L=m(rxv), to the z-axis.
+    double Ltot[3] = {0.0, 0.0, 0.0};
+    Particle_L(ParticleList, Ltot);
+    double Ltot_ang = atan2(Ltot[1], Ltot[2]);
+
+    for (int i=0; i<N_PARTICLES; ++i)
+    {
+      Particle P = ParticleList[i];
+      double pvy = P.vy;
+      double pvz = P.vz;
+
+      P.vy = pvy*cos(Ltot_ang) - pvz*sin(Ltot_ang);
+      P.vz = pvy*sin(Ltot_ang) + pvz*cos(Ltot_ang);  
+    }
+
+    //Real vs = std::sqrt( 1.0/Mtot/dist*(1.0+bin_ecc) );
 
     //ParticleList[0].vx = vs * ParticleList[1].M;
     //ParticleList[1].vx = -vs * ParticleList[0].M;
 
-
     // Coplanar orientation
-    ParticleList[0].vy = -vs * ParticleList[1].M;
-    ParticleList[1].vy = vs * ParticleList[0].M;
+    //ParticleList[0].vy = -vs * ParticleList[1].M;
+    //ParticleList[1].vy = vs * ParticleList[0].M;
 
-    // Add third particle on circumbinary orbit
-    Real vcirc = std::sqrt( 1.0*(ParticleList[0].M + ParticleList[1].M)/4.0 );
-    ParticleList[2].x = 4.0;
-    ParticleList[2].vy = vcirc;
+    // Add third particle on wider circular orbit
+    //Real vcirc = std::sqrt( 1.0*(ParticleList[0].M + ParticleList[1].M)/a2 );
+    //ParticleList[2].x = a2*(1.0-ecc2);
+    //ParticleList[2].vy = vcirc;
 
-    move_to_com(ParticleList);
      
-    printf("Initial Particle Positions:  %f %f\n", ParticleList[0].x, ParticleList[1].x);
-    printf("Initial Particle Velocities: %f %f\n", ParticleList[0].vy, ParticleList[1].vy);
+    //printf("Initial Particle Positions:  %f %f\n", ParticleList[0].x, ParticleList[1].x);
+    //printf("Initial Particle Velocities: %f %f\n", ParticleList[0].vy, ParticleList[1].vy);
+
+    // Print initial state of the particle system
+
+    printf("[[[ Initial State ]]]\n");
+    for (int i=0; i<N_PARTICLES; ++i)
+    {
+      printf("Particle %d\n", i);
+      ParticleList[i].print_elements();
+    }
     printf("Particle Subcycle Timestep:  %f\n", dt_sub);
   }
   ipfile.close();
