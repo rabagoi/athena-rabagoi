@@ -3,6 +3,8 @@
 #include<cmath>
 #include<fstream>
 
+
+#define N_PARTICLES 3
 #define N_EQ 6
 #define G 1.0
 
@@ -34,14 +36,18 @@ struct Particle
 // Print the position and velocity elements of a particle.
 void Particle::print_elements()
 {
-    std::cout << x << ' ' << y << ' ' << z << std::endl;
-    std::cout << vx << ' ' << vy << ' ' << vz << std::endl;
-    std::cout << M << std::endl;
-    std::cout << "Elements: ";
-    for (int i=0; i<N_EQ;i++)
-    {
-        std::cout << elements[i] << ' ';
-    } 
+    //std::cout << x << ' ' << y << ' ' << z << std::endl;
+    //std::cout << vx << ' ' << vy << ' ' << vz << std::endl;
+    //std::cout << M << std::endl;
+    //std::cout << "Elements: ";
+    //for (int i=0; i<N_EQ;i++)
+    //{
+    //    std::cout << elements[i] << ' ';
+    //}
+
+    printf("Pos: %8f %8f %8f\n", x, y, z);
+    printf("Vel: %8f, %8f %8f\n", vx, vy, vz);
+    printf("Mass: %8f\n", M); 
     std::cout << std::endl;
 }
 
@@ -58,7 +64,7 @@ void orbit(Particle[], int, double);
 // Misc. functions
 double Particle_TotalEnergy(Particle[], int);
 void move_to_com(Particle P[]);
-
+void Particle_L(Particle[], double*);
 
 
 // ============================================================================================================================
@@ -342,4 +348,27 @@ void move_to_com(Particle P[])
         P[i].vy -= cvy/Mtot;
         P[i].vz -= cvz/Mtot;
     }
+}
+
+// Calculate the angualr momentum of the system and save the result in the array Ltot
+void Particle_L(Particle Plist[], double* Ltot)
+{
+    double Ltotx = 0.0, Ltoty = 0.0, Ltotz = 0.0;
+    for (int i=0; i<N_PARTICLES; ++i)
+    {
+        double Lx, Ly, Lz;
+
+        Particle P = Plist[i];
+        Lx = P.M * (P.y*P.vz - P.z*P.vy);
+        Ly = -1.0 * P.M * (P.x*P.vz - P.z*P.vx);
+        Lz = P.M * (P.x*P.vy - P.y*P.vx);
+
+        Ltotx += Lx;
+        Ltoty += Ly;
+        Ltotz += Lz;
+    }
+
+    Ltot[0] = Ltotx;
+    Ltot[1] = Ltoty;
+    Ltot[2] = Ltotz;
 }
