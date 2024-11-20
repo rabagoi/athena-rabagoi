@@ -309,11 +309,11 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     P3.x = a2*(1.0-ecc2);
 
     Real vs2 = std::sqrt(1.0/Mtot/a2*(1.0+ecc2)/(1.0-ecc2));
-    P3.vy = (P1.M+P2.M)*vs;
+    P3.vy = (P1.M+P2.M)*vs2;
 
     for (int i=0; i<2; ++i)
     {
-      ParticleList[i].vy += -vs*P3.M;
+      ParticleList[i].vy += -vs2*P3.M;
     }
 
     move_to_com(ParticleList);
@@ -968,6 +968,16 @@ void Mesh::UserWorkInLoop(void)
 {
   // Integrate the gravitational bodies. Call this only once per cycle.
   Particle_Leapfrog_Subcycle(ParticleList, N_PARTICLES, time, dt, dt_sub);
+
+    if (time-orbit_t >= orbit_dt) {
+    for (int i=0; i<N_PARTICLES; i++)
+    {
+      Particle P = ParticleList[i];
+      printf("particle%c %.8f %.8f %.8f %.8f %.8f %.8f %.8f\n",
+        65+i, time, P.x, P.y, P.z, P.vx, P.vy, P.vz);
+    }
+    orbit_t += orbit_dt;
+  }
 }
 
 
@@ -995,6 +1005,7 @@ void MeshBlock::UserWorkInLoop(void)
     }
   }
 
+  /*
   // Output coordinates if a time orbit_dt has elapsed.
   if (Globals::my_rank == 0) {
 
@@ -1002,12 +1013,13 @@ void MeshBlock::UserWorkInLoop(void)
       for (int i=0; i<N_PARTICLES; i++)
       {
         Particle P = ParticleList[i];
-        printf("particle%c %.8f %.8f %.8f %.8f %.8f %.8f %.8f\n",
-          65+i, pmy_mesh->time, P.x, P.y, P.z, P.vx, P.vy, P.vz);
+        //printf("particle%c %.8f %.8f %.8f %.8f %.8f %.8f %.8f\n",
+        //  65+i, pmy_mesh->time, P.x, P.y, P.z, P.vx, P.vy, P.vz);
       }
       orbit_t += orbit_dt;
     }
   }
+  */
 
 }
 
