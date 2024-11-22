@@ -325,7 +325,7 @@ void move_to_com(Particle P[])
     double Mtot = 0.0;
     double cmx = 0.0, cmy = 0.0, cmz = 0.0;
     double cvx = 0.0, cvy = 0.0, cvz = 0.0;
-    for (int i=0; i<2; i++)
+    for (int i=0; i<N_PARTICLES; i++)
     {
         Mtot += P[i].M;
         cmx += P[i].M*P[i].x;
@@ -339,7 +339,7 @@ void move_to_com(Particle P[])
     //std::cout << "Center of Mass: " << cmx << ' ' << cmy << std::endl;
     //std::cout << "Center of Velocity: " << cvx << ' ' << cvy << std::endl;
     // Move each particle in the system.
-    for (int i=0; i<2; i++)
+    for (int i=0; i<N_PARTICLES; i++)
     {
         P[i].x -= cmx/Mtot;
         P[i].y -= cmy/Mtot;

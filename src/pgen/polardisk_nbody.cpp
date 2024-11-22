@@ -169,9 +169,9 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   // In code units, masses are scaled so that GMtot = 1.0,
   // so M1 and M2 are normalized so M = M/Mtot.
 
-  M1 =  pin->GetOrAddReal("problem", "Ma", 1.0);
-  M2 =  pin->GetOrAddReal("problem", "Mb", 1.0);
-  M3 =  pin->GetOrAddReal("problem", "Mc", 0.01);
+  M1 =  pin->GetOrAddReal("problem", "M1", 1.0);
+  M2 =  pin->GetOrAddReal("problem", "M2", 1.0);
+  M3 =  pin->GetOrAddReal("problem", "M3", 0.01);
   Mtot = M1 + M2 + M3;
   M1 = M1/Mtot;
   M2 = M2/Mtot;
