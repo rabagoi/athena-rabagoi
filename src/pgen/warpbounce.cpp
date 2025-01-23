@@ -102,6 +102,7 @@ static Real xcut;
 static Real amp;
 static bool HasCrashed; 
 
+// PARTICLE
 
 // Setup the initial particle array
 Particle ParticleList[2] = {
@@ -170,12 +171,15 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   // In code units, masses are scaled so that GMtot = 1.0,
   // so M1 and M2 are normalized so M = M/Mtot.
 
+  // PARTICLE 
+  /* 
   M1 =  pin->GetOrAddReal("problem", "Ma", 1.0);
   M2 =  pin->GetOrAddReal("problem", "Mb", 1.0);
   Mtot = M1 + M2;
   M1 = M1/Mtot;
   M2 = M2/Mtot;
   Mtot = Mtot/Mtot;
+  */
 
   bin_a = pin->GetOrAddReal("problem", "bin_a", 0.25);
   bin_ecc = pin->GetOrAddReal("problem", "bin_ecc", 0.0);
@@ -220,6 +224,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   // Try to read in particle coordinates for a restart file.
   // If one exists, set the particle coordinates to these values.
 
+  
   std::ifstream ipfile("particle.rst");
   if (ipfile.good()) {
     std::cout << "Particle input file found.  Restarting particle positions." << std::endl;
@@ -260,6 +265,8 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
       }
       pn++;
     }
+
+
   }
 
   // If no restart file exists, initialize the particle velocities 
@@ -273,7 +280,8 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     // NOTE: The current configuration is set for a binary in the simulation XZ-plane (polar alignment).
     // For coplanar alignment, shuffle the axes accordingly or use the commented lines below.
 
-
+    // PARTICLE
+    /*
     // Set initial particle masses
     ParticleList[0].M = M1;
     ParticleList[1].M = M2;
@@ -291,21 +299,23 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     Real dist = std::sqrt(dx*dx + dy*dy + dz*dz);
     
     // Calculate specific velocity vs = v/M
-    Real vs = std::sqrt( 1.0/Mtot/dist*(1.0+bin_ecc) );
+    // Real vs = std::sqrt( 1.0/Mtot/dist*(1.0+bin_ecc) );
 
     //ParticleList[0].vx = vs * ParticleList[1].M;
     //ParticleList[1].vx = -vs * ParticleList[0].M;
 
 
     // Coplanar orientation
-    ParticleList[0].vy = -vs * ParticleList[1].M;
-    ParticleList[1].vy = vs * ParticleList[0].M;
+    // ParticleList[0].vy = -vs * ParticleList[1].M;
+    // ParticleList[1].vy = vs * ParticleList[0].M;
 
-    move_to_com(ParticleList);
+    // move_to_com(ParticleList);
      
     printf("Initial Particle Positions:  %f %f\n", ParticleList[0].x, ParticleList[1].x);
     printf("Initial Particle Velocities: %f %f\n", ParticleList[0].vy, ParticleList[1].vy);
     printf("Particle Subcycle Timestep:  %f\n", dt_sub);
+    */
+
   }
   ipfile.close();
 
@@ -703,6 +713,7 @@ static Real DiskInclination(const Real R)
 
 //----------------------------------------------------------------------------------------
 //!\f: User-defined function for source terms.
+// Currently, particle gravity is turned OFF to simulate a cingle central source.
 //
 void UserSourceTerms(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
      const AthenaArray<Real> &bcc, AthenaArray<Real> &cons, AthenaArray<Real> &cons_scalar) {
@@ -944,7 +955,7 @@ void DiskOuterX3(MeshBlock *pmb,Coordinates *pco, AthenaArray<Real> &prim, FaceF
 void Mesh::UserWorkInLoop(void)
 {
   // Integrate the gravitational bodies. Call this only once per cycle.
-  Particle_Leapfrog_Subcycle(ParticleList, 2, time, dt, dt_sub);
+  // Particle_Leapfrog_Subcycle(ParticleList, 2, time, dt, dt_sub);
 }
 
 
@@ -972,6 +983,8 @@ void MeshBlock::UserWorkInLoop(void)
     }
   }
 
+  // PARTICLE
+  /*
   // Output coordinates if a time orbit_dt has elapsed.
   if (Globals::my_rank == 0) {
 
@@ -985,6 +998,7 @@ void MeshBlock::UserWorkInLoop(void)
       orbit_t += orbit_dt;
     }
   }
+  */
 
 }
 
@@ -992,7 +1006,8 @@ void MeshBlock::UserWorkInLoop(void)
 //----------------------------------------------------------------------------------------
 //!\f: UserWorkAfterLoop: User-defined tasks to be completed after the simulation
 //
-
+// PARTICLE
+/*
 void Mesh::UserWorkAfterLoop(ParameterInput *pin)
 {
   // Writes to an output file once at the end of the simulation.
@@ -1010,7 +1025,7 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin)
         opfile.close();
   }
 }
-
+*/
 //----------------------------------------------------------------------------------------
 //!\f: User-defined timestep
 //
