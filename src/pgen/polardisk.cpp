@@ -213,8 +213,18 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   // If one exists, set the particle coordinates to these values.
 
   std::ifstream ipfile("particle.rst");
-  if (ipfile.good()) {
-    std::cout << "Particle input file found.  Restarting particle positions." << std::endl;
+  bool isRestart = ipfile.good();
+
+  if (Globals::my_rank == 0) {
+    if (isRestart)
+      printf("Particle input file found.  Restarting particle positions.\n");
+    else
+      printf("No restart file found.  Initializing to default positions.\n");
+    
+  }
+
+  if (isRestart) {
+    //std::cout << "Particle input file found.  Restarting particle positions." << std::endl;
     // Read in particle positions
     std::string line;
     // Loop for each particle
@@ -257,7 +267,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   // If no restart file exists, initialize the particle velocities 
   //based off their separation and eccentricity.
   else {
-    std::cout << "No restart file found.  Initializing to default positions." << std::endl;
+    //std::cout << "No restart file found.  Initializing to default positions." << std::endl;
 
     // Move binary to COM frame and set velocity and set particle velocities
     // Only set initial velocity if no restart file is present.  Move this to initialization of ParticleList?
@@ -307,10 +317,31 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 
   // Output useful constants at beginning of simulation.
   if (Globals::my_rank == 0) {
-    printf("Rho_Floor0   : %f\n", rho_floor0);
-    printf("Alpha        : %f\n", alpha);
-    printf("Cooling Time : %f\n", Tc);
-    printf("Inclination  : %f\n", inc);
+    printf("[[[[==== Particle Initial State ====]]]]\n");
+    for (int i=0; i<N_PARTICLES; ++i)
+    {
+      printf("Particle %d\n", i);
+      ParticleList[i].print_elements();
+    }
+    printf("\n");
+
+    printf("======== Binary System Parameters ======\n");
+    printf("Masses: %f %f\n", M1, M2);
+    printf("Bin. Separation  : %f\n", bin_a);
+    printf("Bin. Eccentricity: %f\n", bin_ecc);
+
+    printf("======== Disk Parameters ======\n");
+    printf("Den. Slope   :   %f\n", dslope);
+    printf("Temp.Slope   :   %f\n", pslope);
+    printf("Rho_Floor0   :   %f\n", rho_floor0);
+    printf("Alpha        :   %f\n", alpha);
+    printf("Cooling Time :   %f\n", Tc);
+    printf("Rho_Floor0   :   %f\n", rho_floor0);
+    printf("Alpha        :   %f\n", alpha);
+    printf("Cooling Time :   %f\n", Tc);
+    printf("Disk Incl.   :   %f\n", inc);
+
+    printf("Particle Subcycle Timestep:  %f\n", dt_sub);
   }
 
   return;

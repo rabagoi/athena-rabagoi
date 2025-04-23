@@ -91,6 +91,7 @@ static Real Tc;
 static Real M1, M2, M3, Mtot;
 static Real a1, a2, ecc1, ecc2;
 static Real bin_inc;
+static Real Ltot_ang;
 //static Real bin_a, bin_ecc;
 static Real rs;
 
@@ -228,8 +229,18 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   // If one exists, set the particle coordinates to these values.
 
   std::ifstream ipfile("particle.rst");
-  if (ipfile.good()) {
-    std::cout << "Particle input file found.  Restarting particle positions." << std::endl;
+  bool isRestart = ipfile.good();
+
+  if (Globals::my_rank == 0) {
+    if (isRestart)
+      printf("Particle input file found.  Restarting particle positions.\n");
+    else
+      printf("No restart file found.  Initializing to default positions.\n");
+  }
+
+  if (isRestart) {
+    //std::cout << "Particle input file found.  Restarting particle positions." << std::endl;
+
     // Read in particle positions
     std::string line;
     // Loop for each particle
@@ -262,8 +273,8 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
       if (Globals::my_rank == 0)
       {
         printf("Particle %d: %.8f %.8f %.8f %.8f %.8f %.8f %.8f\n", 
-	  pn, ParticleList[pn].x, ParticleList[pn].y, ParticleList[pn].z, ParticleList[pn].vx,
-	  ParticleList[pn].vy, ParticleList[pn].vz,ParticleList[pn].M);
+	      pn, ParticleList[pn].x, ParticleList[pn].y, ParticleList[pn].z, ParticleList[pn].vx,
+	      ParticleList[pn].vy, ParticleList[pn].vz,ParticleList[pn].M);
       }
       pn++;
     }
@@ -272,7 +283,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   // If no restart file exists, initialize the particle velocities 
   //based off their separation and eccentricity.
   else {
-    std::cout << "No restart file found.  Initializing to default positions." << std::endl;
+    //std::cout << "No restart file found.  Initializing to default positions." << std::endl;
 
     // Move binary to COM frame and set velocity and set particle velocities
     // Only set initial velocity if no restart file is present.  Move this to initialization of ParticleList?
@@ -321,7 +332,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     // Realign the angular momentum of the system, L=m(rxv), to the z-axis.
     double Ltot[3] = {0.0, 0.0, 0.0};
     Particle_L(ParticleList, Ltot);
-    double Ltot_ang = atan2(Ltot[1], Ltot[2]);
+    Ltot_ang = atan2(Ltot[1], Ltot[2]);
 
     for (int i=0; i<N_PARTICLES; ++i)
     {
@@ -333,26 +344,15 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
       P.vz = pvy*sin(Ltot_ang) + pvz*cos(Ltot_ang);  
     }
 
-    //Real vs = std::sqrt( 1.0/Mtot/dist*(1.0+bin_ecc) );
+    // For the 3-body setup, disk inclination is measured relative to the outer binary,
+    // which is inclined an amount Ltot_ang downwards after realignment to Ltot.
+    // Thus, add the angle change Ltot_ang to inc to get any additional amount the disk
+    // must be inclined (to the sim axes) so it is angled an amount inc to the OB plane.
 
-    //ParticleList[0].vx = vs * ParticleList[1].M;
-    //ParticleList[1].vx = -vs * ParticleList[0].M;
-
-    // Coplanar orientation
-    //ParticleList[0].vy = -vs * ParticleList[1].M;
-    //ParticleList[1].vy = vs * ParticleList[0].M;
-
-    // Add third particle on wider circular orbit
-    //Real vcirc = std::sqrt( 1.0*(ParticleList[0].M + ParticleList[1].M)/a2 );
-    //ParticleList[2].x = a2*(1.0-ecc2);
-    //ParticleList[2].vy = vcirc;
-
-     
-    //printf("Initial Particle Positions:  %f %f\n", ParticleList[0].x, ParticleList[1].x);
-    //printf("Initial Particle Velocities: %f %f\n", ParticleList[0].vy, ParticleList[1].vy);
+    inc += Ltot_ang;
 
     // Print initial state of the particle system
-
+    /*
     printf("[[[ Initial State ]]]\n");
     for (int i=0; i<N_PARTICLES; ++i)
     {
@@ -360,20 +360,43 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
       ParticleList[i].print_elements();
     }
     printf("Particle Subcycle Timestep:  %f\n", dt_sub);
+    */
   }
   ipfile.close();
 
-  
-  // DEBUG: Set output variables and statements
-  HasCrashed = false;
-
-  // Output useful constants at beginning of simulation.
+  // Output useful info at beginning of simulation.
   if (Globals::my_rank == 0) {
-    printf("Rho_Floor0   : %f\n", rho_floor0);
-    printf("Alpha        : %f\n", alpha);
-    printf("Cooling Time : %f\n", Tc);
-    printf("Inclination  : %f\n", inc);
+    printf("[[[[==== Particle Initial State ====]]]]\n");
+    for (int i=0; i<N_PARTICLES; ++i)
+    {
+      printf("Particle %d\n", i);
+      ParticleList[i].print_elements();
+    }
+    printf("\n");
+
+    printf("======== Triple System Parameters ======\n");
+    printf("Masses: %f %f %f\n", M1, M2, M3);
+    printf("IB Separation  : %f\n", a1);
+    printf("IB Eccentricity: %f\n", ecc1);
+    printf("OB Separation  : %f\n", a2);
+    printf("OB Eccentricity: %f\n", ecc2);
+    printf("Mutual Incl.   : %f\n", bin_inc);
+    printf("L Realignment  : %f\n\n", Ltot_ang);
+
+    printf("======== Disk Parameters ======\n");
+    printf("Den. Slope   :   %f\n", dslope);
+    printf("Temp.Slope   :   %f\n", pslope);
+    printf("Rho_Floor0   :   %f\n", rho_floor0);
+    printf("Alpha        :   %f\n", alpha);
+    printf("Cooling Time :   %f\n", Tc);
+    printf("Disk Incl.   :   %f\n", inc-Ltot_ang);
+    printf("Incl. to Sim Axes: %f\n", inc);
+
+    printf("Particle Subcycle Timestep:  %f\n", dt_sub);
   }
+
+  // DEBUG: Set debug variables
+  HasCrashed = false;
 
   return;
 }
