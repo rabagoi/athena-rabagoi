@@ -523,6 +523,15 @@ static Real DenProfileSph(const Real R, const Real th, const Real phi) {
     denmid *= exp(-(rad-rout_mu)*(rad-rout_mu)/rout_sigma/rout_sigma);
   }
 
+  // Add a gap between the inner and outer disks
+  if (rad > rgap-wgap && rad < rgap) {
+     denmid *= exp(-(rad-(rgap-wgap))*(rad-(rgap-wgap))/gap_sigma/gap_sigma);
+  }
+
+  if (rad > rgap && rad < rgap+wgap) {
+    denmid *= exp(-(rad-(rgap+wgap))*(rad-(rgap+wgap))/gap_sigma/gap_sigma);
+  }
+
   //Real zo = 0.0;
   //Real zn = zo;
   den = denmid;
