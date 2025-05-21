@@ -50,7 +50,8 @@ static void VelProfileCyl(const Real rad, const Real phi, const Real z,
   Real &v1, Real &v2, Real &v3, Real den);
 void AlphaViscosity(HydroDiffusion *phdif, MeshBlock *pmb, const AthenaArray<Real> &prim,
     const AthenaArray<Real> &bcc, int is, int ie, int js, int je, int ks, int ke);
-static Real rho_floor(const Real rad, const Real phi, const Real z);
+//static Real rho_floor(const Real rad, const Real phi, const Real z);
+static Real rho_floor(const Real r);
 
 // User-defined functions
 void UserSourceTerms(MeshBlock *pmb, const Real time, const Real dt, const AthenaArray<Real> &prim, const AthenaArray<Real> &prim_scalar,
@@ -79,6 +80,7 @@ static Real rin_mu, rin_sigma;
 static Real rout_mu, rout_sigma;
 static Real inc;
 
+
 // disk structure variables
 static Real rho0, p0_over_r0, gamma_gas;
 static Real dfloor;
@@ -87,11 +89,16 @@ static Real rho_floor0, rho_floor_slope;
 static Real alpha;
 static Real Tc;
 
-// particle variables
+// particle variables, currently set up for 3BP
 static Real M1, M2, M3, Mtot;
 static Real a1, a2, ecc1, ecc2;
-static Real bin_inc;
-static Real Ltot_ang;
+static Real inc1, omega1, Omega1;
+static Real inc2, omega2, Omega2;
+//static Real bin_inc;
+double Ltot[3] = {0.0, 0.0, 0.0};
+
+
+static Real Ltot_inc, Ltot_Omega;
 //static Real bin_a, bin_ecc;
 static Real rs;
 
@@ -183,7 +190,13 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   a2 = pin->GetOrAddReal("problem", "a2", 2.0);
   ecc1 = pin->GetOrAddReal("problem", "ecc1", 0.0);
   ecc2 = pin->GetOrAddReal("problem", "ecc2", 0.0);
-  bin_inc = pin->GetOrAddReal("problem", "bin_inc", 0.0);
+  inc1 = pin->GetOrAddReal("problem", "inc1", 0.0);
+  inc2 = pin->GetOrAddReal("problem", "inc2", 0.0);
+  omega1 = pin->GetOrAddReal("problem", "omega1", 0.0);
+  omega2 = pin->GetOrAddReal("problem", "omega2", 0.0);
+  Omega1 = pin->GetOrAddReal("problem", "Omega1", 0.0);
+  Omega2 = pin->GetOrAddReal("problem", "Omega2", 0.0);
+  //bin_inc = pin->GetOrAddReal("problem", "bin_inc", 0.0);
   //bin_a = pin->GetOrAddReal("problem", "bin_a", 0.25);
   //bin_ecc = pin->GetOrAddReal("problem", "bin_ecc", 0.0);
   rs = pin->GetOrAddReal("problem", "rs", 0.001);
@@ -292,7 +305,6 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     // Set initial particle masses
     P1.M = M1;
     P2.M = M2;
-    P3.M = M3;
 
 
     // Set inner binary orbit
@@ -306,17 +318,39 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     
     // Calculate specific velocity vs = v/M
     Real vs = std::sqrt( 1.0/(P1.M+P2.M)/dist*(1.0+ecc1) );
-
+    /* 
     P1.vy = -vs * P2.M * cos(bin_inc);
     P1.vz = -vs * P2.M * sin(bin_inc);
     
     P2.vy = P1.M * vs * cos(bin_inc);
     P2.vz = P1.M * vs * sin(bin_inc);
+    */
+    
+    P1.vy = -vs * P2.M;
+    
+    P2.vy = vs * P1.M;
 
-    move_to_com(ParticleList);
 
+
+    move_to_com(ParticleList, 2);
+    Particle_L(ParticleList, Ltot);
+    printf("L (Pre-Rotation): <%f %f %f>\n", Ltot[0], Ltot[1], Ltot[2]);
+
+    Rz(ParticleList, omega1);
+    Particle_L(ParticleList, Ltot);
+    printf("L (Post-omega): <%f %f %f>\n", Ltot[0], Ltot[1], Ltot[2]);
+
+    Rx(ParticleList, inc1);
+    Particle_L(ParticleList, Ltot);
+    printf("L (Post-inc): <%f %f %f>\n", Ltot[0], Ltot[1], Ltot[2]);
+
+    Rz(ParticleList, Omega1);
+
+    Particle_L(ParticleList, Ltot);
+    printf("L (Post-Rotation): <%f %f %f>\n", Ltot[0], Ltot[1], Ltot[2]);
 
     // Calculate outer binary orbit as a third particle orbiting the COM of the inner binary.
+    P3.M = M3;
     P3.x = a2*(1.0-ecc2);
 
     Real vs2 = std::sqrt(1.0/Mtot/a2*(1.0+ecc2)/(1.0-ecc2));
@@ -328,12 +362,25 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     }
 
     move_to_com(ParticleList);
+    Rz(ParticleList, omega2);
+    Rx(ParticleList, inc2);
+    Rz(ParticleList, Omega2);
+    
 
     // Realign the angular momentum of the system, L=m(rxv), to the z-axis.
-    double Ltot[3] = {0.0, 0.0, 0.0};
     Particle_L(ParticleList, Ltot);
-    Ltot_ang = atan2(Ltot[1], Ltot[2]);
+    Ltot_inc = acos(Ltot[2]/sqrt(Ltot[0]*Ltot[0] + Ltot[1]*Ltot[1] + Ltot[2]*Ltot[2]) );
+    Ltot_Omega = atan2(Ltot[1], Ltot[0]);
+    printf("L (Post-P3): <%f %f %f>\n", Ltot[0], Ltot[1], Ltot[2]);
 
+    Rz(ParticleList, -Ltot_Omega-M_PI_2);
+    Particle_L(ParticleList, Ltot);
+    printf("L (Post-Omega): <%f %f %f>\n", Ltot[0], Ltot[1], Ltot[2]);
+    Rx(ParticleList, -Ltot_inc);
+
+    Particle_L(ParticleList, Ltot);
+    printf("L (Post-Inc): <%f %f %f>\n", Ltot[0], Ltot[1], Ltot[2]);
+    /* 
     for (int i=0; i<N_PARTICLES; ++i)
     {
       Particle P = ParticleList[i];
@@ -343,13 +390,18 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
       P.vy = pvy*cos(Ltot_ang) - pvz*sin(Ltot_ang);
       P.vz = pvy*sin(Ltot_ang) + pvz*cos(Ltot_ang);  
     }
+    */
 
     // For the 3-body setup, disk inclination is measured relative to the outer binary,
     // which is inclined an amount Ltot_ang downwards after realignment to Ltot.
     // Thus, add the angle change Ltot_ang to inc to get any additional amount the disk
     // must be inclined (to the sim axes) so it is angled an amount inc to the OB plane.
 
-    inc += Ltot_ang;
+    // For the 3-body setup, disk inclination is measured relative to the outer binary,
+    // which is inclined an amount (-Ltot_ang) to the x-axis after realignment to Ltot.
+    // Thus, subtract Ltot_ang from inc to get any additional amount the disk
+    // must be inclined (to the sim axes) so it is angled an amount inc to the OB plane.
+    inc -= Ltot_inc;
 
     // Print initial state of the particle system
     /*
@@ -380,8 +432,12 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     printf("IB Eccentricity: %f\n", ecc1);
     printf("OB Separation  : %f\n", a2);
     printf("OB Eccentricity: %f\n", ecc2);
-    printf("Mutual Incl.   : %f\n", bin_inc);
-    printf("L Realignment  : %f\n\n", Ltot_ang);
+    //printf("Mutual Incl.   : %f\n", bin_inc);
+
+    printf("======== Angular Momentum ========\n");
+    printf("L Final Position: <%f %f %f>\n", Ltot[0], Ltot[1], Ltot[2]);
+    printf("L Realignment Incl.  : %f\n", Ltot_inc);
+    printf("L Realignment Omega  : %f\n\n", Ltot_Omega);
 
     printf("======== Disk Parameters ======\n");
     printf("Den. Slope   :   %f\n", dslope);
@@ -389,7 +445,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     printf("Rho_Floor0   :   %f\n", rho_floor0);
     printf("Alpha        :   %f\n", alpha);
     printf("Cooling Time :   %f\n", Tc);
-    printf("Disk Incl.   :   %f\n", inc-Ltot_ang);
+    printf("Disk Incl.   :   %f\n", inc-Ltot_inc);
     printf("Incl. to Sim Axes: %f\n", inc);
 
     printf("Particle Subcycle Timestep:  %f\n", dt_sub);
@@ -556,7 +612,8 @@ static Real DenProfileCyl(const Real rad, const Real phi, const Real z) {
     zn=zo+dz;
   }
 
-  return(std::max(den, rho_floor(rad, phi,z)));
+  //return(std::max(den, rho_floor(rad, phi,z)));
+  return(std::max(den, rho_floor(sqrt(rad*rad+z*z))));
 
 }
 
@@ -628,7 +685,8 @@ static Real DenProfileSph(const Real R, const Real th, const Real phi) {
     poverro = poverrn;
   }
 
-  return(std::max(den, rho_floor(R*sin(th), phi,z)));
+  //return(std::max(den, rho_floor(R*sin(th), phi,z)));
+  return(std::max(den, rho_floor(R)));
 
 }
 
@@ -680,7 +738,8 @@ static void VelProfileCyl(const Real rad, const Real phi, const Real z,
   Real vel = std::sqrt(std::max(1.0*rad*rad/R/R/R + rad/DenProfileSph(R,th,phi)*dpdR, 0.0));
 
   // Lower the velocity in regions close to the pole of rotation.
-  if (den <=(1.0+amp)*rho_floor(rad, phi, z)) {
+  //if (den <=(1.0+amp)*rho_floor(rad, phi, z)) {
+  if (den <=(1.0+amp)*rho_floor(std::sqrt(rad*rad+z*z))) {
     vel = std::sqrt(1.0*rad*rad/R/R/R);
   }
 
@@ -739,10 +798,23 @@ void AlphaViscosity(HydroDiffusion *phdif, MeshBlock *pmb, const AthenaArray<Rea
 //----------------------------------------------------------------------------------------
 //!\f: Spherical density floor
 //
+/*
 static Real rho_floor(const Real rad, const Real phi, const Real z)
 {
   // Simple density floor
   Real rhofloor=rho_floor0*pow(std::sqrt(rad*rad+z*z)/r0, rho_floor_slope);
+  return std::max(rhofloor, dfloor);
+}
+*/
+
+
+//----------------------------------------------------------------------------------------
+//!\f: Spherical density floor
+//
+static Real rho_floor(const Real r)
+{
+  // Simple density floor
+  Real rhofloor=rho_floor0*pow(r/r0, rho_floor_slope);
   return std::max(rhofloor, dfloor);
 }
 
@@ -1010,23 +1082,69 @@ void Mesh::UserWorkInLoop(void)
 
 void MeshBlock::UserWorkInLoop(void)
 {
-  Real rad, phi, z;
+  //Real rad, phi, z;
+  Real r, th, phi;
+  //Real Lx = 0.0, Ly = 0.0, Lz = 0.0;
   for(int k=ks; k<=ke; ++k){
-     for (int j=js; j<=je; ++j) {
-       for (int i=is; i<=ie; ++i) {
-         // Set a minimum level for the density floor.
-         GetCylCoord(pcoord, rad, phi, z, i, j, k);
-         phydro->u(IDN,k,j,i) = std::max(phydro->u(IDN,k,j,i), rho_floor(rad, phi, z));
+    for (int j=js; j<=je; ++j) {
+      for (int i=is; i<=ie; ++i) {
+        r = pcoord->x1v(i);
+        th = pcoord->x2v(j);
+        phi = pcoord->x3v(k);
+        // Set a minimum level for the density floor.
+        //GetCylCoord(pcoord, rad, phi, z, i, j, k);
+        //phydro->u(IDN,k,j,i) = std::max(phydro->u(IDN,k,j,i), rho_floor(rad, phi, z));
+        phydro->u(IDN,k,j,i) = std::max(phydro->u(IDN,k,j,i), rho_floor(pcoord->x1v(i)));
+
+        // Test output for coordinate info
+        //if (Globals::my_rank == 0) {
+        if (pmy_mesh->time-orbit_t >= orbit_dt){
+        /*
+          if (i == ie && j == je && k == ke){
+            printf("Cell %d %d %d\n", i, j, k);
+            printf("Coordinates (%f %f %f)\n", pcoord->x1v(i), pcoord->x2v(j), pcoord->x3v(k));
+            printf("Cell Volume: %f\n", pcoord->GetCellVolume(k,j,i));
+          }
+        */
+        /* 
+        // Calculate angular momentum of disk
+          Real sinth = sin(th);
+          Real costh = cos(th);
+          Real sinphi = sin(phi);
+          Real cosphi = cos(phi);
+
+          Real dV = pcoord->GetCellVolume(k,j,i);
+
+          Real x = r*sinth*cosphi;
+          Real y = r*sinth*sinphi;
+          Real z = r*costh;
+
+          Real vx = phydro->u(IM1,k,j,i)*sinth*cosphi + phydro->u(IM2,k,j,i)*costh*cosphi - phydro->u(IM3,k,j,i)*sinphi;
+          Real vy = phydro->u(IM1,k,j,i)*sinth*sinphi + phydro->u(IM2,k,j,i)*costh*sinphi + phydro->u(IM3,k,j,i)*cosphi;
+          Real vz = phydro->u(IM1,k,j,i)*costh - phydro->u(IM2,k,j,i)*sinth;
+
+          Lx += dV*(y*vz - z*vy);
+          Ly += -dV*(x*vz - z*vx);
+          Lz += dV*(x*vy - y*vx);
+           */
+        }
+        //}
 
           // Debug check for crashes
           if (std::isnan(phydro->u(IM1,k,j,i)) && !HasCrashed)
           {
             HasCrashed = true;
-            printf("NAN at (%f, %f, %f), Index [%d, %d, %d] \n", rad, phi, z, i, j, k);
+            //printf("NAN at (%f, %f, %f), Index [%d, %d, %d] \n", rad, phi, z, i, j, k);
           }
       }
     }
   }
+
+  /*   
+  if (Globals::my_rank == 0){
+    printf("Disk Ang. Momentum: <%f, %f, %f>\n", Lx, Ly, Lz);
+  } 
+  */
 
   /*
   // Output coordinates if a time orbit_dt has elapsed.

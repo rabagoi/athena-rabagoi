@@ -63,9 +63,12 @@ void orbit(Particle[], int, double);
 
 // Misc. functions
 double Particle_TotalEnergy(Particle[], int);
-void move_to_com(Particle P[]);
+void move_to_com(Particle P[], int);
 void Particle_L(Particle[], double*);
 
+// Rotation functions
+void Rx(Particle[], double);
+void Rz(Particle[], double);
 
 // ============================================================================================================================
 // Integrators for the Particle class.
@@ -319,13 +322,16 @@ double Particle_TotalEnergy(Particle p[], int n)
 
 // Move the system to a center-of-mass frame of reference.
 // This zeroes out the COM and COV for the entire system.
-void move_to_com(Particle P[])
+void move_to_com(Particle P[], int n = -1)
 {
+    // Number of particles to iterate over.  Defaults to the entire system (N_PARTICLES).
+    int np = (n > 0) ? n : N_PARTICLES;
+
     // Calculate center of mass and center of velocity
     double Mtot = 0.0;
     double cmx = 0.0, cmy = 0.0, cmz = 0.0;
     double cvx = 0.0, cvy = 0.0, cvz = 0.0;
-    for (int i=0; i<N_PARTICLES; i++)
+    for (int i=0; i<np; i++)
     {
         Mtot += P[i].M;
         cmx += P[i].M*P[i].x;
@@ -339,7 +345,7 @@ void move_to_com(Particle P[])
     //std::cout << "Center of Mass: " << cmx << ' ' << cmy << std::endl;
     //std::cout << "Center of Velocity: " << cvx << ' ' << cvy << std::endl;
     // Move each particle in the system.
-    for (int i=0; i<N_PARTICLES; i++)
+    for (int i=0; i<np; i++)
     {
         P[i].x -= cmx/Mtot;
         P[i].y -= cmy/Mtot;
@@ -371,4 +377,43 @@ void Particle_L(Particle Plist[], double* Ltot)
     Ltot[0] = Ltotx;
     Ltot[1] = Ltoty;
     Ltot[2] = Ltotz;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Rotation Functions
+// ------------------------------------------------------------------------------------------------
+void Rx(Particle p[], double ang)
+{
+    double py, pz, pvy, pvz;
+    for (int i=0; i<N_PARTICLES; i++)
+    {
+        Particle P = p[i];
+        py = P.y;
+        pz = P.z;
+        pvy = P.vy;
+        pvz = P.vz;
+
+        P.y = py*cos(ang) - pz*sin(ang);
+        P.z = py*sin(ang) + pz*cos(ang);
+        P.vy = pvy*cos(ang) - pvz*sin(ang);
+        P.vz = pvy*sin(ang) + pvz*cos(ang);
+    }
+}
+
+void Rz(Particle p[], double ang)
+{
+    double px, py, pvx, pvy;
+    for (int i=0; i<N_PARTICLES; i++)
+    {
+        Particle P = p[i];
+        px = P.x;
+        py = P.y;
+        pvx = P.vx;
+        pvy = P.vy;
+
+        P.x = px*cos(ang) - py*sin(ang);
+        P.y = px*sin(ang) + py*cos(ang);
+        P.vx = pvx*cos(ang) - pvy*sin(ang);
+        P.vy = pvx*sin(ang) + pvy*cos(ang);
+    }
 }
