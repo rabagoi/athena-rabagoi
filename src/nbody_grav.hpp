@@ -4,7 +4,7 @@
 #include<fstream>
 
 
-#define N_PARTICLES 2
+#define N_PARTICLES 3
 #define N_EQ 6
 #define G 1.0
 

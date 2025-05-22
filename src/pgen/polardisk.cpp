@@ -38,7 +38,7 @@ python configure.py --prob=polardisk --coord=spherical_polar --nghost=3 -mpi [hd
 #include "../hydro/hydro_diffusion/hydro_diffusion.hpp"    // For alpha viscosity
 
 // Add gravitational masses
-#include "../Binary.hpp"
+#include "../nbody_grav.hpp"
 
 static void GetCylCoord(Coordinates *pco,Real &rad,Real &phi,Real &z,int i,int j,int k);
 static Real DenProfileCyl(const Real rad, const Real phi, const Real z);
@@ -311,10 +311,6 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   }
   ipfile.close();
 
-  
-  // DEBUG: Set output variables and statements
-  HasCrashed = false;
-
   // Output useful constants at beginning of simulation.
   if (Globals::my_rank == 0) {
     printf("[[[[==== Particle Initial State ====]]]]\n");
@@ -343,6 +339,9 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 
     printf("Particle Subcycle Timestep:  %f\n", dt_sub);
   }
+
+  // DEBUG: Set output variables and statements
+  HasCrashed = false;
 
   return;
 }
