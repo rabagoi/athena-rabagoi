@@ -38,7 +38,7 @@ python configure.py --prob=polardisk --coord=spherical_polar --nghost=3 -mpi [hd
 #include "../hydro/hydro_diffusion/hydro_diffusion.hpp"    // For alpha viscosity
 
 // Add gravitational masses
-#include "../nbody_grav.hpp"
+#include "../Binary.hpp"
 
 static void GetCylCoord(Coordinates *pco,Real &rad,Real &phi,Real &z,int i,int j,int k);
 static Real DenProfileCyl(const Real rad, const Real phi, const Real z);
@@ -281,11 +281,11 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     ParticleList[1].M = M2;
 
     // Set initial particle positions
-    //ParticleList[0].z = 0.0;
-    //ParticleList[1].z = bin_a*(1.0-bin_ecc);
+    ParticleList[0].z = 0.0;                // Polar version
+    ParticleList[1].z = bin_a*(1.0-bin_ecc);
 
-    ParticleList[0].x = 0.0;                 // Coplanar version
-    ParticleList[1].x = bin_a*(1.0-bin_ecc);
+    //ParticleList[0].x = 0.0;                 // Coplanar version
+    //ParticleList[1].x = bin_a*(1.0-bin_ecc);
 
     Real dx = ParticleList[0].x-ParticleList[1].x;
     Real dy = ParticleList[0].y-ParticleList[1].y; 
@@ -295,13 +295,14 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     // Calculate specific velocity vs = v/M
     Real vs = std::sqrt( 1.0/Mtot/dist*(1.0+bin_ecc) );
 
-    //ParticleList[0].vx = vs * ParticleList[1].M;
-    //ParticleList[1].vx = -vs * ParticleList[0].M;
+    // Set polar orbit - Lbin points in the +y direction
+    ParticleList[0].vx = -vs * ParticleList[1].M;
+    ParticleList[1].vx = vs * ParticleList[0].M;
 
 
-    // Coplanar orientation
-    ParticleList[0].vy = -vs * ParticleList[1].M;
-    ParticleList[1].vy = vs * ParticleList[0].M;
+    // Set coplanar orbit
+    //ParticleList[0].vy = -vs * ParticleList[1].M;
+    //ParticleList[1].vy = vs * ParticleList[0].M;
 
     move_to_com(ParticleList);
      

@@ -38,7 +38,7 @@ python configure.py --prob=polardisk --coord=spherical_polar --nghost=3 -mpi [hd
 #include "../hydro/hydro_diffusion/hydro_diffusion.hpp"    // For alpha viscosity
 
 // Add gravitational masses
-#include "../Binary.hpp"
+#include "../nbody_grav.hpp"
 
 
 static void GetCylCoord(Coordinates *pco,Real &rad,Real &phi,Real &z,int i,int j,int k);
