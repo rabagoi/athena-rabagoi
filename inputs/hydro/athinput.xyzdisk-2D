@@ -1,0 +1,124 @@
+<comment>
+problem   = Keplerian disk in cartesian coordinates
+reference = 
+configure = --prob=xyzdisk --coord=cartesian
+
+<job>
+problem_id  = disk      # problem ID: basename of output filenames
+
+# Output variables - rst and user variables enabled for debug
+<output1>
+file_type   = hdf5      # HDF5 data dump
+variable    = prim      #
+dt          = 0.6283185307     # time increment between outputs
+
+<output2>
+file_type   = hst       # History data dump
+dt          = 6.28     # time increment between outputs
+
+#<output3>
+#file_type   = rst       # Restart file
+#dt          = 62.83185307
+
+#<output4>
+#file_type   = hdf5      # HDF5 data dump
+#variable    = uov      # User data
+#dt          = 0.6283185307     # time increment between outputs
+
+
+<time>
+cfl_number  = 0.3       # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim        = -1        # cycle limit
+tlim        = 62.83185307      # time limit (1 binary orbit)
+integrator  = vl2       # time integration algorithm
+xorder      = 2         # order of spatial reconstruction
+ncycle_out  = 1         # interval for stdout summary info
+
+<mesh>
+nx1         = 128            # Number of zones in X1-direction
+x1min       = -10.0            # minimum value of X1
+x1max       = 10.0            # maximum value of X1
+ix1_bc      = outflow           # Inner-X1 boundary condition flag
+ox1_bc      = outflow           # Outer-X1 boundary condition flag
+
+nx2         = 128            # Number of zones in X2-direction
+x2min       = -10.0	    # minimum value of X2
+x2max       = 10.0           # maximum value of X2
+ix2_bc      = outflow       # Inner-X2 boundary condition flag
+ox2_bc      = outflow       # Outer-X2 boundary condition flag
+
+# Nz = 1 for 2D version
+nx3         = 1             # Number of zones in X3-direction
+x3min       = -2.5           # minimum value of X3
+x3max       = 2.5            # maximum value of X3
+ix3_bc      = outflow           # Inner-X3 boundary condition flag
+ox3_bc      = outflow           # Outer-X3 boundary condition flag
+
+
+refinement  = none
+
+#refinement  = static
+#<refinement1>
+#x1min      = -2.4
+#x1max      = 2.4 
+#x2min      = -2.4 
+#x2max      = 2.4 
+#level      = 1
+
+#<refinement2>
+#x1min      = -1.24 
+#x1max      = 1.24 
+#x2min      = -1.24 
+#x2max      = 1.24 
+#level      = 2
+
+#<refinement3>
+#x1min      = -0.624 
+#x1max      = 0.624 
+#x2min      = -0.624 
+#x2max      = 0.624 
+#level      = 3
+
+<meshblock>
+nx1        = 16
+nx2        = 16
+nx3        = 1
+
+<hydro>
+gamma           = 1.66666667 # gamma = C_p/C_v
+iso_sound_speed = 0.1        # isothermal sound speed
+dfloor          = 1.e-6
+pfloor          = 1.e-9
+
+<problem>
+GM              = 0.0
+r0              = 1.0
+rho0            = 1.0
+p0_over_r0      = 0.01
+pslope          = -1.0
+dslope          = -2.25
+nu_iso          = 0.01
+
+# Disk geometry
+rin_mu          = 3.0
+rin_sigma       = 0.15
+rout_mu         = 5.0
+rout_sigma      = 0.7
+
+# Binary variables
+bin_a           = 1.0
+bin_ecc         = 0.0
+bin_inc         = 0.0
+rsmooth         = 0.05
+
+# Cooling variables
+cooling         = true
+Tc              = 1.e-2
+
+# Damping variables
+damping         = true
+Ro              = 4.0
+Rmax            = 5.0
+
+# Accretion variables
+accretion       = false
