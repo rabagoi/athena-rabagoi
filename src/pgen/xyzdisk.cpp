@@ -12,9 +12,9 @@
 python configure.py --prob=xyzdisk --coord=<cartesian,spherical_polar> -mpi -hdf5 --hdf5_path=<hdf5-path> -cxx='icpc' --cflag="-lmpi -lmpi++"
 
 TODO:
-| | Redo POverRBinary function
+|/| Redo POverRBinary function
 | | Check implementation of source terms - combine all energy terms into one step?
-| | Add debug comment flag?
+|/| Add debug comment flag?
 */
 
 
@@ -98,6 +98,7 @@ static Real disk_inc;
 //static Real thmin, thi, tho, thmax;
 static bool cooling, grav, damping;
 static bool accreting;
+static bool debugmsg;
 
 // binary variables
 static Real M1, M2, Mtot;
@@ -165,6 +166,9 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   grav = pin->GetOrAddBoolean("problem", "grav", true);
   damping = pin->GetOrAddBoolean("problem", "damping", false);
   accreting = pin->GetOrAddBoolean("problem", "accreting", false);
+
+  // Toggle debug messages
+  debugmsg = pin->GetOrAddBoolean("problem", "debugmsg", false);
 
 
   // Set inner/outer boundaries for damping zones.
@@ -308,6 +312,10 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
 
     printf("======= AMR Parameters =======\n");
     printf("2D Sim?      :   %d\n", Is2DSim);
+
+    printf("============ Debug ===========\n");
+    printf("Debug Msg?   :   %d\n", debugmsg);
+
   }
 
   return;
@@ -343,9 +351,11 @@ void MeshBlock::InitUserMeshBlockData(ParameterInput *pin) {
   // ruser_meshblock_data[0](ks,js,is) = 123.0;
 
   // DEBUG: User variable output
-  //printf("USER MESHBLOCK DATA: %f\n", ruser_meshblock_data[0](ks,js,is));
-  //printf("USER MESHBLOCK DATA (0): %f\n", ruser_meshblock_data[0](0,0,0));
-
+  if (debugmsg)
+  {
+    printf("USER MESHBLOCK DATA: %f\n", ruser_meshblock_data[0](ks,js,is));
+    printf("USER MESHBLOCK DATA (0): %f\n", ruser_meshblock_data[0](0,0,0));
+  }
   // enroll user output variables
   AllocateUserOutputVariables(3);
 }
@@ -457,9 +467,10 @@ static Real PoverR(const Real rad, const Real phi, const Real z) {
 
 static Real PoverRBinary(const Real rad, const Real phi, const Real z) {
   Real poverr = 0.0;
-  Real phi_grav = 0.0;
+  //Real phi_grav = 0.0;
   Real r = std::max(rs, std::sqrt(rad*rad+z*z));
-  /*
+  Real dmin = SIZE_MAX;
+  
   // Convert to cartesian coordinates
   Real x = rad*cos(phi);
   Real y = rad*sin(phi);
@@ -471,20 +482,24 @@ static Real PoverRBinary(const Real rad, const Real phi, const Real z) {
     Real dx = x-pn.x;
     Real dy = y-pn.y;
     Real dz = z-pn.z;
-    //Real d = std::sqrt(dx*dx + dy*dy + dz*dz);
+    Real d = std::sqrt(dx*dx + dy*dy + dz*dz);
     //Real d2 = std::sqrt(dx*dx + dy*dy + dz*dz);
+
+    dmin = std::min(dmin, d);
 
     // Calculate gravitational potential
     //phi_grav += -1*pn.M/std::sqrt(dx*dx + dy*dy + dz*dz + 4*rs*rs);
 
-    Real r = std::sqrt(dx*dx + dy*dy + dz*dz + rs*rs);
+    //Real r = std::sqrt(dx*dx + dy*dy + dz*dz + rs*rs);
     //poverr += p0_over_r0*pow(r/r0, pslope);
 
   }
-  */
+  
+  dmin = std::max(dmin,rs);
   //poverr = p0_over_r0*pow(rad/r0, pslope);
   
-  poverr = p0_over_r0*pow(r/r0, pslope);
+  poverr = p0_over_r0*pow(dmin/r0, pslope);
+  //poverr = p0_over_r0*pow(r/r0, pslope);
   //poverr = p0_over_r0*fabs(phi_grav);
   return poverr;
 }
@@ -669,7 +684,7 @@ void UserSourceTerms(MeshBlock *pmb, const Real time, const Real dt, const Athen
         // Remove the central force, so the gravitational force is only from the binary
         //Fr += gm0/R/R;
 
-        // USER DATA DEBUG: Record acceleration (before updating values)
+        // USER DATA DEBUG: Record data to user arrays for output (before updating values)
         //pmb->ruser_meshblock_data[0](k,j,i) = ax1;
         //pmb->ruser_meshblock_data[1](k,j,i) = ax2;
         //pmb->ruser_meshblock_data[2](k,j,i) = ax3;
@@ -807,9 +822,9 @@ void UserSourceTerms(MeshBlock *pmb, const Real time, const Real dt, const Athen
 
         }  // End of damping block
         
-        // USER DATA DEBUG: Record data to user arrays for output
+        // USER DATA DEBUG: Record data to user arrays for output (after updating values)
         pmb->ruser_meshblock_data[0](k-(pmb->ks),j-(pmb->js),i-(pmb->is)) = r;
-        pmb->ruser_meshblock_data[1](k-(pmb->ks),j-(pmb->js),i-(pmb->is)) = Fdamp;
+        pmb->ruser_meshblock_data[1](k-(pmb->ks),j-(pmb->js),i-(pmb->is)) = p_over_r;
         pmb->ruser_meshblock_data[2](k-(pmb->ks),j-(pmb->js),i-(pmb->is)) = Facc;
 
         //pmb->ruser_meshblock_data[0](k,j,i) = r;
@@ -889,16 +904,20 @@ int RefinementCondition(MeshBlock *pmb)
 
   // Debug prints
   
-  /* 
-  printf("Meshblock center: %f %f %f\n",x_mb, y_mb, z_mb);
-  printf("Meshblock half-size: %f %f %f\n", dx_mb, dy_mb, dz_mb);
-  printf("Dist. to Origin: %f\n", dist);
-  printf("Refined? %d\n", RefineBlock);
-  //printf("MB corner: %f %f", )
-  //printf("Box corners: %f %f | %f %f\n", pmb->pcoord->x1f(pmb->is), pmb->pcoord->x1f(pmb->ie+1), pmb->pcoord->x2f(pmb->js), pmb->pcoord->x2f(pmb->je+1));
-  //printf("MB Bounds: %f %f\n", pmb->x1min, pmb->x1max);
+  /*
+  if (debugmsg)
+  {
+    printf("Meshblock center: %f %f %f\n",x_mb, y_mb, z_mb);
+    printf("Meshblock half-size: %f %f %f\n", dx_mb, dy_mb, dz_mb);
+    printf("Dist. to Origin: %f\n", dist);
+    printf("Refined? %d\n", RefineBlock);
+    //printf("MB corner: %f %f", )
+    //printf("Box corners: %f %f | %f %f\n", pmb->pcoord->x1f(pmb->is), pmb->pcoord->x1f(pmb->ie+1), pmb->pcoord->x2f(pmb->js), pmb->pcoord->x2f(pmb->je+1));
+    //printf("MB Bounds: %f %f\n", pmb->x1min, pmb->x1max);
+    
+  }
   */
-  
+
   // Return the refinement condition.
   if (RefineBlock)
     return 1;
@@ -1108,10 +1127,13 @@ void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
   }
 
   // DEBUG: Print user meshblock statements
-  //printf("GRID IDXS             : %d-%d %d-%d %d-%d\n", is,ie, js,je, ks,ke);
-  //printf("USER MESHBLOCK DATA (SAVE): %f\n", ruser_meshblock_data[0](ks,js,is));
-  //printf("USER MESHBLOCK DATA (0,SAVE): %f\n", ruser_meshblock_data[0](0,0,0));
-  //printf("USER OUT VAR          : %f\n", user_out_var(0,ks,js,is));
-  //printf("USER OUT VAR (ZEROIDX): %f\n", user_out_var(0,0,0,0));
+  if (debugmsg)
+  {
+    //printf("GRID IDXS             : %d-%d %d-%d %d-%d\n", is,ie, js,je, ks,ke);
+    //printf("USER MESHBLOCK DATA (SAVE): %f\n", ruser_meshblock_data[0](ks,js,is));
+    //printf("USER MESHBLOCK DATA (0,SAVE): %f\n", ruser_meshblock_data[0](0,0,0));
+    //printf("USER OUT VAR          : %f\n", user_out_var(0,ks,js,is));
+    //printf("USER OUT VAR (ZEROIDX): %f\n", user_out_var(0,0,0,0));
+  }
 
 }
